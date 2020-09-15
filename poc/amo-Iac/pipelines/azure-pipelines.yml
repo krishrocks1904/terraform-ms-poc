@@ -1,0 +1,138 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+#  paths:
+#    include: AzureDevops-Introduction
+ branches:
+   include:
+      - master
+
+variables:
+  tfBackendStorageAccountName: satfdeploymentstate
+  tfBackendStorageContainerName: 'state-manage-from-azdevop'
+  tfBackendFileName: 'terraform-state-file'
+  tfvarsFile: ''
+  InfraProvisioningResoureGroupName: InfraProvisioningResoureGroupName
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages: 
+- stage: Terraform_plan
+  jobs:
+    - job: Terraform_plan
+      steps:
+      - task: TerraformInstaller@0
+        inputs:
+          terraformVersion: '0.13.2'
+
+      - script: |
+              ls $(System.DefaultWorkingDirectory)
+              echo "terraform build started.."
+              cd $(System.DefaultWorkingDirectory)/src/code
+              echo " run terraform init commond"
+              ls $(System.DefaultWorkingDirectory)/src/code
+              terraform init -backend-config="storage_account_name=$(tfBackendStorageAccountName)" -backend-config="container_name=$(tfBackendStorageContainerName)" -backend-config="access_key=$(tfBackendSAAccessKey)" -backend-config="key=$(tfBackendFileName)-dev-03"
+               
+               echo ##############~~~~~~~~~~~~~~~Terraform Plan~~~~~~~~~~~~~~###############
+               terraform plan -var-file="input/dev-01.tfvars" -out="out.plan" -var="client_id=$(client_id)" -var="client_secret=$(client_secret)" -var="tenant_id=$(tenant_id)" -var="subscription_id=$(subscription_id)" -var="environment_name=dev" -var="environment_instance=03"
+        displayName: 'build stage'
+
+      - task: CopyFiles@2
+        inputs:
+            SourceFolder: 'src'
+            Contents: |
+                      **/*
+                      !code/.terraform/**/*
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        displayName: 'Copy Artifacts'
+
+      - publish: '$(Build.ArtifactStagingDirectory)'
+        artifact: Build_Artifacts
+
+- stage: Apply_On_Dev
+  dependsOn: Terraform_plan
+  jobs:
+  - deployment: 
+    displayName: Dev
+    environment: Dev
+    strategy:
+     runOnce:
+        deploy:
+           steps:
+             - download: current 
+               artifact: Build_Artifacts
+
+             - task: TerraformInstaller@0
+               inputs:
+                  terraformVersion: '0.13.2'
+
+             - script: |
+                    echo "Deploy to Move to directory"
+                    
+                    ls $(Pipeline.Workspace)/Build_Artifacts/code
+                    
+                    cd $(Pipeline.Workspace)/Build_Artifacts/code
+                    
+                    terraform init -backend-config="storage_account_name=$(tfBackendStorageAccountName)" -backend-config="container_name=$(tfBackendStorageContainerName)" -backend-config="access_key=$(tfBackendSAAccessKey)" -backend-config="key=$(tfBackendFileName)-dev-03"
+               
+                    echo ##############~~~~~~~~~~~~~~~Terraform Plan~~~~~~~~~~~~~~###############
+                    terraform plan -var-file=./input/dev-01.tfvars -out="out.plan" -var="client_id=$(client_id)" -var="client_secret=$(client_secret)" -var="tenant_id=$(tenant_id)" -var="subscription_id=$(subscription_id)" -var="environment_name=dev" -var="environment_instance=03"
+        
+                    echo '#######Terraform Apply########'
+                    terraform apply out.plan
+               displayName: Apply
+
+- stage: Apply_On_Test
+  dependsOn: Apply_On_Dev
+  jobs:
+  - deployment: 
+    displayName: TST
+    environment: TST
+    strategy:
+     runOnce:
+        deploy:
+           steps:
+             - script: |
+                  echo running from build
+               displayName: 'build stage'
+          
+- stage: Apply_On_UAT
+  dependsOn: Apply_On_Test
+  jobs:
+  - deployment: 
+    displayName: UAT
+    environment: UAT
+    strategy:
+     runOnce:
+        deploy:
+           steps:
+             - script: |
+                  echo running from build
+               displayName: 'build stage'
+
+- stage: Apply_On_PreProd
+  dependsOn: Apply_On_UAT
+  jobs:
+  - deployment: 
+    displayName: PRE
+    environment: PRE
+    strategy:
+     runOnce:
+        deploy:
+           steps:
+             - script: |
+                  echo running from build
+               displayName: 'build stage'
+   
+# steps:
+# - script: echo Hello, world!
+#   displayName: 'Run a one-line script'
+
+# - script: |
+#     echo Add other tasks to build, test, and deploy your project.
+#     echo See https://aka.ms/yaml
+#   displayName: 'Run a multi-line script'

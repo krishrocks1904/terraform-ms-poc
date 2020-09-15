@@ -1,0 +1,59 @@
+{
+    "variable": {
+        "tags": {
+            "default": {
+                "environments": "Dev",
+                "owner": "admin",
+                "cost-centre": "COS-001"
+            }
+        },
+        "virtual_network": {
+            "default": {
+                "subnets": ["web-subnet", "data-subnet"]
+            }
+        },
+        "keyvault": {
+            "default": { "create": "yes" }
+        },
+        "app_service": {
+            "default": {
+                "app_service_plan": {
+                    "sku": {
+                        "tier": "Standard"
+                    }
+                }
+            }
+        },
+        "application_insight": {
+            "default": { "create": "yes" }
+        },
+        "log_analytics": {
+            "default": { "create": "yes" }
+        },
+        "storage_accounts": {
+            "default": { "create": "yes" }
+        },
+        "az_mssql": {
+            "default": {
+                "sqlserver_name": "sql",
+                "elasticpool_config": {
+                    "epl_name": "sql-epl"
+                },
+                "databases": ["db1"]
+            }
+        },
+        "az_postgresql": {
+            "default": {
+                "sqlserver_name": "pst-gresql"
+            }
+        },
+        "az_synapse": {
+            "default": {
+                "name": "synapse-sql"
+            }
+        },
+        "next": {
+            "default": { "create": "yes" }
+        }
+    }
+}
